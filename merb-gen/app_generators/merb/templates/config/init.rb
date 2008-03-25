@@ -7,6 +7,11 @@ $LOAD_PATH.unshift(Merb.root / "lib")
 
 <% require 'sha1' %>
 Merb::Config.use do |c|
+  
+  ### Sets up a custom session id key, if you want to piggyback sessions of other applications
+  ### with the cookie session store. If not specified, defaults to '_session_id'.
+  # c[:session_id_key] = '_session_id'
+  
   c[:session_secret_key]  = '<%= SHA1.new(rand(100000000000).to_s).to_s %>'
   c[:session_store] = 'cookie'
 end  
@@ -16,19 +21,25 @@ end
 ### if you need a database.
 
 ### Uncomment for DataMapper ORM
-# use_orm :datamapper
+<%= "# " unless default_orm?(:datamapper) %>use_orm :datamapper
 
 ### Uncomment for ActiveRecord ORM
-# use_orm :activerecord
+<%= "# " unless default_orm?(:activerecord) %>use_orm :activerecord
 
 ### Uncomment for Sequel ORM
-# use_orm :sequel
+<%= "# " unless default_orm?(:sequel) %>use_orm :sequel
 
 
 ### This defines which test framework the generators will use
 ### rspec is turned on by default
-# use_test :test_unit
-use_test :rspec
+###
+### Note that you need to install the merb_rspec if you want to ue
+### rspec and merb_test_unit if you want to use test_unit. 
+### merb_rspec is installed by default if you did gem install
+### merb.
+###
+<%= "# " unless default_test_suite?(:test) %>use_test :test_unit
+<%= "# " unless default_test_suite?(:spec) %>use_test :rspec
 
 ### Add your other dependencies here
 

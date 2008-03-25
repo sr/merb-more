@@ -24,7 +24,7 @@ module Merb
     def self.run(name, argv, generator, command)
       app_root = Dir.pwd
       
-      # Merb.start :environment => 'development', :adapter => 'runner'
+      # Merb.start :environment => 'development'
       
       Gem.clear_paths
       Gem.path.unshift(app_root / "gems")
@@ -32,7 +32,7 @@ module Merb
       require "rubigen/scripts/#{command}"
       
       RubiGen::Base.use_component_sources! Merb.generator_scope
-      RubiGen::Scripts.const_get(command.capitalize).new.run(argv, :generator => generator)
+      RubiGen::Scripts.const_get(command.capitalize).new.run(argv, :generator => generator, :destination => app_root)
     end
   end
 end

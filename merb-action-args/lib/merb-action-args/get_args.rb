@@ -22,11 +22,19 @@ class ParseTreeArray < Array #:nodoc:
   end
   
   def get_args
-    arg_node = deep_array_node(:args)
-    return nil unless arg_node
-    args = arg_node.arg_nodes
-    default_node = arg_node.deep_array_node(:block)
-    return args unless default_node
+    if arg_node = deep_array_node(:args)
+      # method defined with def keyword
+      args = arg_node.arg_nodes
+      default_node = arg_node.deep_array_node(:block)
+      return args unless default_node
+    else
+      # assuming method defined with Module#define_method
+      return []
+    end
+    
+    # if it was defined with def, and we found the default_node,
+    # that should bring us back to regularly scheduled programming..
+    
     lasgns = default_node[1..-1]
     lasgns.each do |asgn|
       args.assoc(asgn[1]) << eval(RubyToRuby.new.process(asgn[2]))
@@ -38,14 +46,16 @@ end
 
 # Used in mapping controller arguments to the params hash.
 # NOTE: You must have the 'ruby2ruby' gem installed for this to work.
-# Example:
-#   (In PostsController)
+#
+# ==== Examples
+#   # In PostsController
 #   def show(id)  #=> id is the same as params[:id]
-
 module GetArgs
   
-  # Returns an array of method arguments and their default values
-  # Example:
+  # ==== Returns
+  # Array:: Method arguments and their default values.
+  #
+  # ==== Examples
   #   class Example
   #     def hello(one,two="two",three)
   #     end
@@ -54,7 +64,8 @@ module GetArgs
   #     end
   #   end
   #
-  #   Example.instance_method(:hello).get_args    #=> [[:one], [:two, "two"], [:three, "three"]]
+  #   Example.instance_method(:hello).get_args
+  #     #=> [[:one], [:two, "two"], [:three, "three"]]
   #   Example.instance_method(:goodbye).get_args  #=> nil
   def get_args
     klass, meth = self.to_s.split(/ /).to_a[1][0..-2].split("#")

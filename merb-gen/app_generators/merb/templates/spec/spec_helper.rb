@@ -1,14 +1,11 @@
-$TESTING=true
 require 'rubygems'
 require 'merb-core'
-require 'merb-core/test/fake_request'
-require 'merb-core/test/request_helper'
+require 'spec' # Satiates Autotest and anyone else not using the Rake tasks
 
-# TODO: Boot Merb, via the Test Rack adapter
-Merb.start :environment => (ENV['MERB_ENV'] || 'test'),
-           :adapter     => 'runner',
-           :merb_root  => File.join(File.dirname(__FILE__), ".." )
+Merb.start_environment(:testing => true, :adapter => 'runner', :environment => ENV['MERB_ENV'] || 'test')
 
 Spec::Runner.configure do |config|
-  config.include(Merb::Test::RequestHelper)
+  config.include(Merb::Test::ViewHelper)
+  config.include(Merb::Test::RouteHelper)
+  config.include(Merb::Test::ControllerHelper)
 end
