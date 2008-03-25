@@ -67,129 +67,80 @@ class Freezer
   
   class << self
 
-    # Avalaible components and their respective git repository URIs.
     def components
       {
-        'core'    => 'git://github.com/wycats/merb-core.git',
-        'more'    => 'git://github.com/wycats/merb-more.git',
-        'plugins' => 'git://github.com/wycats/merb-plugins.git'
+        "core" => "git://github.com/wycats/merb-core.git",
+        "more" => "git://github.com/wycats/merb-more.git",
+        "plugins" => "git://github.com/wycats/merb-plugins.git"
       }
     end
 
-    # Directory in which components are saved.
-    # Default is set to +framework+
-    # NOTE: should the framework directory be coustomizable?
     def framework_dir
+      # Should allow customization of this directory's location?
       File.join(File.dirname(__FILE__), "framework")
     end
 
-    # Try to freeze +component+ into +framework_dir+
-    #
-    # ==== Parameters
-    # component<String>::
-    #   Name of the component to freeze. 
-    #   Can be one of +core+, +more+ or +plugins+. 
-    # update<Boolean>:: 
-    #   If true, we'll try to update the component if already managed
-    #   Default is false.
-    def freeze(component, update=false)
-      freezer = new(component, update)
-      freezer.freeze
+    def gitmodules
+      File.join(File.dirname(__FILE__), ".gitmodules")    
+    end
+
+    def freeze(component, update = false)
+      new(component, update).freeze
     end
 
   end
 
   def initialize(component, update)
-    @component = 'merb-' + component
-    @update = update
-    @component_directory = File.join(File.basename(Freezer.framework_dir), @component)
+    @component = "merb-" + component
+    @update    = update
   end
   
   def freeze
-    # Ensure that the current directory is a git repository
-    abort('ERROR: Not a git repository') unless git?
-
     # Ensure that required git commands are available
     %w(git-pull git-submodule).each do |bin|
       next if in_path?(bin)
-      $stderr.puts "ERROR: #{bin} must be available in PATH"
+      $stderr.puts "ERROR: #{bin} must be avaible in PATH"
       exit 1
     end
 
-    case status
-    when :managed
+    unless File.directory?(framework_dir)
+      puts "Creating framework directory ..."
+      FileUtils.mkdir_p(framework_dir)
+    end
+
+    if managed?
       puts "#{@component} seems to be already managed by git-submodule."
       if @update
-        puts "Updating #{@component} ..."
-        sh "cd #{@component_directory} && git-pull origin master"
-        sh "git-submodule update #{@component_directory}"
-      else
-        puts "Set UPDATE to true if you want to update #{@component}."
-      end
-    when :not_managed
-      unless File.directory?(Freezer.framework_dir)
-        puts "Creating framework directory ..."
-        FileUtils.mkdir_p(Freezer.framework_dir)
+        puts "Trying to update #{@component} ..."
+        sh "cd #{framework_dir}/#{@component} && git-pull"
       end
       puts "Creating submodule for #{@component} ..."
-      sh "git-submodule --quiet add #{Freezer.components[@component.gsub('merb-', '')]} \
-        #{File.basename(Freezer.framework_dir)}/#{@component}" 
-      abort("Unable to create submodule for #{@component}") unless $?.success?
-      sh "git-submodule init #{File.basename(Freezer.framework_dir)}/#{@component}"
-    when :unitialized # OK
-      puts "Initializing #{@component} ..."
-      sh "git-submodule update #{@component_directory}"
-    when :need_update then sh "git-submodule update #{@component_directory}"
+      sh "git-submodule --quiet add #{components[@component.gsub("merb-", '')]} #{File.basename(framework_dir)}/#{@component}" 
+      if $?.success?
+        sh("git-submodule init")
+      else
+        # Should this instead be a raise?
+        $stderr.puts("ERROR: unable to create submodule for #{@component}")
+      end
     end
   end
 
   protected
 
-  # Returns component's status by reading the output of +git-submodule status+.
-  #
-  # Status can be one the fellowing :
-  # * +managed+: component is properlty managed
-  # * +not_managed+: component doesn't appears into command's output
-  # * +unitialized+: component is managed but not initialized
-  # * +need_update+:
-  #   The currently checked out submodule commit
-  #   does not match the SHA-1 found in the index of the containing repository.
-  #
-  # ==== Returns
-  # Symbol:: The status of component's submodule
-  def status
-    status = `git-submodule status`
-    prefix = status =~ /^(\s|\+|-)\w+ #{File.basename(Freezer.framework_dir)}\/#{@component}/im && $1
-    return case prefix
-    when ' ' then :managed
-    when '-' then :unitialized
-    when '+' then :need_update
-    else
-      :not_managed
-    end
+  def in_submodule?
+    return false unless File.exists?(gitmodules)
+    File.read(gitmodules) =~ %r![submodule "#{framework_dir}/#{@component}"]!
   end
 
-  # Check that +bin+ is avalaible in path using +/bin/which+.
-  #
-  # ==== Parameters
-  # String:: Name of the program.
-  #
-  # ==== Returns
-  # Boolean:: Availability of +bin+.
+  def managed?
+    File.directory?(File.join(framework_dir, @component)) || in_submodule?
+  end
+
   def in_path?(bin)
     `which #{bin}`
     !$?.nil? && $?.success?
   end
 
-  # Ensure that the current directory is a git repository
-  # using +git-status+
-  # 
-  # ==== Returns
-  # Boolean:: Is it a git repository?
-  def git?
-    `git-status`
-    $?.exitstatus != 128
-  end
 end
 
 task :freeze => Freezer.components.keys.map { |component| "freeze:#{component}" }
@@ -197,7 +148,7 @@ namespace :freeze do
   Freezer.components.each do |component, git_repository|
     desc "Freeze #{component} from #{git_repository}"
     task component do
-      Freezer.freeze(component, !!ENV['UPDATE'])
+      Freezer.freeze(component, ENV["UPDATE"])
     end
   end
 end
