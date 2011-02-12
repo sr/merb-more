@@ -1,3 +1,4 @@
+yo
 == 0.9.2 "appropriate response to reality" 2008-03-24
 * Fix merb-flat and merb-very-flat generators
 * merb-gen no longer generates apps by default
